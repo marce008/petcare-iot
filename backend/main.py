@@ -37,7 +37,7 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import StreamingResponse
 from weasyprint import HTML
-from backend.feeding import (
+from feeding import (
     MIN_FEEDING_INTERVAL_MINUTES,
     WEEK_DAYS,
     daily_portion_grams,
