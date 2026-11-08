@@ -1,0 +1,207 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Remove unused browser shims",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"uninstall",
+				"browserify-zlib",
+				"crypto-browserify",
+				"empty-module",
+				"https-browserify",
+				"react-native-get-random-values",
+				"react-native-url-polyfill",
+				"readable-stream",
+				"stream-browserify",
+				"stream-http",
+				"util"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify mobile build after cleanup",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"tsc",
+				"--noEmit"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify Android export after cleanup",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"expo",
+				"export",
+				"--platform",
+				"android"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check git worktree status",
+			"type": "shell",
+			"command": "git",
+			"args": [
+				"--no-pager",
+				"status",
+				"--short"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify dependency installation",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"ls",
+				"--depth=0"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Install backend requirements",
+			"type": "shell",
+			"command": "backend\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pip",
+				"install",
+				"-r",
+				"backend\\requirements.txt"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Install backend Python requirements",
+			"type": "shell",
+			"command": "backend\\.venv\\Scripts\\python.exe",
+			"args": [
+				"-m",
+				"pip",
+				"install",
+				"-r",
+				"backend\\requirements.txt"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "Run requested TypeScript and Expo checks",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/d",
+				"/s",
+				"/c",
+				"npx tsc --noEmit & set T=!errorlevel! & echo TSC_EXIT_STATUS=!T! & npx expo export --platform android & set E=!errorlevel! & echo EXPO_EXIT_STATUS=!E!"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "TypeScript noEmit check",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"tsc",
+				"--noEmit"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			]
+		},
+		{
+			"label": "Requested TypeScript check",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"tsc",
+				"--noEmit"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			]
+		},
+		{
+			"label": "Requested Android Expo export",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"expo",
+				"export",
+				"--platform",
+				"android"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Install Expo PDF download support",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"expo",
+				"install",
+				"expo-file-system",
+				"expo-sharing"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Check Expo SDK package compatibility",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"expo",
+				"install",
+				"--check"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Verify clean npm install",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"ci"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Run project tests",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"test"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "Install Expo notifications SDK package",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"expo",
+				"install",
+				"expo-notifications"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

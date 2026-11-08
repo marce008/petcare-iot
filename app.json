@@ -1,0 +1,99 @@
+{
+  "expo": {
+    "name": "petcare-iot",
+    "slug": "petcare-iot",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.petcareiot"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "@react-native-community/datetimepicker",
+        {
+          "android": {
+            "datePicker": {
+              "colorAccent": {
+                "light": "#047857",
+                "dark": "#047857"
+              },
+              "colorControlActivated": {
+                "light": "#047857",
+                "dark": "#047857"
+              },
+              "textColorPrimary": {
+                "light": "#111827",
+                "dark": "#FFFFFF"
+              },
+              "textColorSecondary": {
+                "light": "#6B7280",
+                "dark": "#B0B0B0"
+              },
+              "windowBackground": {
+                "light": "#FFFFFF",
+                "dark": "#1E1E1E"
+              }
+            },
+            "timePicker": {
+              "background": {
+                "light": "#FFFFFF",
+                "dark": "#1E1E1E"
+              },
+              "headerBackground": {
+                "light": "#047857",
+                "dark": "#047857"
+              },
+              "numbersBackgroundColor": {
+                "light": "#F2F4F8",
+                "dark": "#181818"
+              },
+              "numbersInnerTextColor": {
+                "light": "#6B7280",
+                "dark": "#B0B0B0"
+              },
+              "numbersSelectorColor": {
+                "light": "#047857",
+                "dark": "#047857"
+              },
+              "numbersTextColor": {
+                "light": "#111827",
+                "dark": "#FFFFFF"
+              }
+            }
+          }
+        }
+      ],
+      "expo-status-bar",
+      "expo-sharing",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PETCARE IoT necesita acceso a tus fotos para agregar una imagen de perfil a tu mascota.",
+          "cameraPermission": "PETCARE IoT necesita acceso a la cámara para tomar una foto de tu mascota.",
+          "microphonePermission": false
+        }
+      ]
+    ]
+  }
+}
