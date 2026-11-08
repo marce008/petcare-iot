@@ -50,6 +50,26 @@ function getApiScheme(envContent) {
   return scheme;
 }
 
+function getApiMode(envContent) {
+  const match = envContent.match(
+    /^\s*(?:export\s+)?EXPO_PUBLIC_API_MODE\s*=\s*(['"]?)([^'"\s#]+)\1\s*$/m,
+  );
+  const mode = match ? match[2].toLowerCase() : 'local';
+
+  if (mode !== 'local' && mode !== 'remote') {
+    throw new Error('EXPO_PUBLIC_API_MODE debe ser local o remote.');
+  }
+
+  return mode;
+}
+
+function getConfiguredApiUrl(envContent) {
+  const match = envContent.match(
+    /^\s*(?:export\s+)?EXPO_PUBLIC_API_URL\s*=\s*(['"]?)([^'"\s#]+)\1\s*$/m,
+  );
+  return match ? match[2] : '';
+}
+
 function updateEnvFile(ipAddress) {
   const current = fs.existsSync(envPath)
     ? fs.readFileSync(envPath, 'utf8')
@@ -70,9 +90,24 @@ function updateEnvFile(ipAddress) {
 }
 
 try {
-  const ipAddress = getWifiIPv4();
-  const scheme = updateEnvFile(ipAddress);
-  console.log(`EXPO_PUBLIC_API_URL actualizado para la interfaz Wi-Fi: ${scheme}://${ipAddress}:${port}`);
+  const currentEnv = fs.existsSync(envPath)
+    ? fs.readFileSync(envPath, 'utf8')
+    : '';
+  const mode = getApiMode(currentEnv);
+
+  if (mode === 'remote') {
+    const apiUrl = getConfiguredApiUrl(currentEnv);
+    if (!apiUrl || !apiUrl.startsWith('https://')) {
+      throw new Error(
+        'Configura una EXPO_PUBLIC_API_URL HTTPS válida para el modo remote.',
+      );
+    }
+    console.log(`Se conserva la API remota configurada: ${apiUrl}`);
+  } else {
+    const ipAddress = getWifiIPv4();
+    const scheme = updateEnvFile(ipAddress);
+    console.log(`EXPO_PUBLIC_API_URL actualizado para la interfaz Wi-Fi: ${scheme}://${ipAddress}:${port}`);
+  }
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;

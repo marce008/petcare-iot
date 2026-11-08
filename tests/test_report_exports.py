@@ -161,17 +161,20 @@ class DeviceAlertTests(unittest.IsolatedAsyncioTestCase):
         )
         user_collection = SimpleNamespace(
             find_one=AsyncMock(return_value={
+                "_id": ObjectId(user_id),
                 "language": "Español",
                 "push_notifications": 1,
                 "feeding_reminders": 1,
                 "expo_push_tokens": [],
             })
         )
+        pet_collection = SimpleNamespace(find_one=AsyncMock(return_value=pet))
         database = SimpleNamespace(
             historial_alimentacion=history_collection,
             alertas_dispositivo=alert_collection,
             horarios_alimentacion=schedule_collection,
             usuarios=user_collection,
+            mascotas=pet_collection,
         )
         request = SimpleNamespace(
             app=SimpleNamespace(state=SimpleNamespace(database=database))
@@ -179,8 +182,8 @@ class DeviceAlertTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(
             main,
-            "_authenticated_device_pet",
-            new=AsyncMock(return_value=pet),
+            "_authenticated_device_user",
+            new=AsyncMock(return_value={"_id": ObjectId(user_id)}),
         ):
             result = await main.record_device_feeding(
                 main.DeviceFeedingEventInput(
@@ -217,8 +220,8 @@ class DeviceAlertTests(unittest.IsolatedAsyncioTestCase):
         alert_collection.find_one = AsyncMock(return_value={"_id": alert_id})
         with patch.object(
             main,
-            "_authenticated_device_pet",
-            new=AsyncMock(return_value=pet),
+            "_authenticated_device_user",
+            new=AsyncMock(return_value={"_id": ObjectId(user_id)}),
         ):
             duplicate_result = await main.record_device_feeding(
                 main.DeviceFeedingEventInput(

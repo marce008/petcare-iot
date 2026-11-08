@@ -54,6 +54,8 @@ MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "petcare_iot")
 TOKEN_SECRET = os.getenv("PETCARE_TOKEN_SECRET")
 if not TOKEN_SECRET or not TOKEN_SECRET.strip():
     raise RuntimeError("La variable PETCARE_TOKEN_SECRET debe configurarse con una clave estable.")
+ESP32_DEVICE_TOKEN = os.getenv("ESP32_DEVICE_TOKEN", "").strip()
+ESP32_DEVICE_USER_EMAIL = os.getenv("ESP32_DEVICE_USER_EMAIL", "").strip().lower()
 ABSTRACT_EMAIL_REPUTATION_API_KEY = (
     os.getenv("ABSTRACT_EMAIL_REPUTATION_API_KEY")
     or os.getenv("ABSTRACT_EMAIL_VALIDATION_API_KEY", "")
@@ -1140,16 +1142,30 @@ async def delete_pet(
     return deleted
 
 
-async def _authenticated_device_pet(request: Request, candidate: str | None) -> dict[str, Any]:
-    if not candidate:
-        raise HTTPException(status_code=401, detail="Credenciales del dispositivo inválidas")
-    token_hash = hashlib.sha256(candidate.encode()).hexdigest()
-    pet = await request.app.state.database.mascotas.find_one(
-        {"device_token_hash": token_hash}
+async def _authenticated_device_user(
+    request: Request, candidate: str | None
+) -> dict[str, Any]:
+    if not ESP32_DEVICE_TOKEN or not ESP32_DEVICE_USER_EMAIL:
+        raise HTTPException(
+            status_code=503,
+            detail="El acceso del dispensador no está configurado en el servidor.",
+        )
+    if not candidate or not hmac.compare_digest(
+        candidate.encode("utf-8"), ESP32_DEVICE_TOKEN.encode("utf-8")
+    ):
+        raise HTTPException(
+            status_code=401, detail="Credenciales del dispositivo inválidas"
+        )
+
+    user = await request.app.state.database.usuarios.find_one(
+        {"email": ESP32_DEVICE_USER_EMAIL}
     )
-    if not pet:
-        raise HTTPException(status_code=401, detail="Credenciales del dispositivo inválidas")
-    return pet
+    if not user:
+        raise HTTPException(
+            status_code=503,
+            detail="La cuenta asociada al dispensador no está disponible.",
+        )
+    return user
 
 
 @app.post("/pets/{pet_id}/device-token")
@@ -1175,22 +1191,48 @@ async def device_feeding_schedules(
     device_token: str | None = Header(default=None, alias="X-Device-Token"),
 ) -> dict[str, Any]:
     database = request.app.state.database
-    pet = await _authenticated_device_pet(request, device_token)
+    user = await _authenticated_device_user(request, device_token)
+    user_id = str(user["_id"])
     schedules = await database.horarios_alimentacion.find(
         {
             "activo": 1,
-            "usuario_id": pet["usuario_id"],
-            "mascota_id": pet["_id"],
+            "usuario_id": user_id,
         }
     ).sort("hora", 1).to_list()
-    schedules = await _recalculate_feeding_schedule_portions(database, pet, schedules)
+    pets = await database.mascotas.find(
+        {"usuario_id": user_id},
+        {
+            "nombre": 1,
+            "especie": 1,
+            "raza": 1,
+            "peso": 1,
+            "tamano": 1,
+            "racion_diaria_veterinaria_gramos": 1,
+            "usuario_id": 1,
+        },
+    ).to_list()
+    pet_map = {str(pet["_id"]): pet for pet in pets}
+    schedules_by_pet: dict[str, list[dict[str, Any]]] = {}
+    for schedule in schedules:
+        schedules_by_pet.setdefault(str(schedule["mascota_id"]), []).append(schedule)
+
+    for pet_id, pet in pet_map.items():
+        pet_schedules = schedules_by_pet.get(pet_id, [])
+        if pet_schedules:
+            await _recalculate_feeding_schedule_portions(
+                database, pet, pet_schedules
+            )
 
     device_schedules = []
     for schedule in schedules:
+        pet_id = str(schedule["mascota_id"])
+        pet = pet_map.get(pet_id)
+        if not pet:
+            continue
         device_schedules.append(
             {
                 "horario_id": str(schedule["_id"]),
-                "mascota_id": str(pet["_id"]),
+                "mascota_id": pet_id,
                 "mascota": {
                     "nombre": pet.get("nombre", ""),
                     "especie": pet.get("especie", ""),
@@ -1219,8 +1261,9 @@ async def record_device_feeding(
     request: Request,
     device_token: str | None = Header(default=None, alias="X-Device-Token"),
 ) -> dict[str, Any]:
-    device_pet = await _authenticated_device_pet(request, device_token)
+    device_user = await _authenticated_device_user(request, device_token)
     database = request.app.state.database
+    user_id = str(device_user["_id"])
     if not ObjectId.is_valid(data.horario_id):
         raise HTTPException(status_code=422, detail="Identificador de horario inválido")
 
@@ -1228,15 +1271,19 @@ async def record_device_feeding(
         {
             "_id": ObjectId(data.horario_id),
             "activo": 1,
-            "mascota_id": device_pet["_id"],
+            "usuario_id": user_id,
         }
     )
     if not schedule:
         raise HTTPException(status_code=404, detail="Horario de alimentación no encontrado")
-    pet = device_pet
+    pet = await database.mascotas.find_one(
+        {"_id": schedule["mascota_id"], "usuario_id": user_id}
+    )
+    if not pet:
+        raise HTTPException(status_code=404, detail="Mascota del horario no encontrada")
 
     existing = await database.historial_alimentacion.find_one(
-        {"evento_id": data.evento_id}
+        {"evento_id": data.evento_id, "usuario_id": user_id}
     )
     if existing:
         existing["mascota_id"] = str(existing["mascota_id"])
@@ -1268,8 +1315,10 @@ async def record_device_feeding(
         existing = await database.historial_alimentacion.find_one(
             {"evento_id": data.evento_id}
         )
-        if not existing:
-            raise
+        if not existing or existing.get("usuario_id") != user_id:
+            raise HTTPException(
+                status_code=409, detail="El identificador del evento ya está en uso."
+            )
         existing["mascota_id"] = str(existing["mascota_id"])
         return {**_serialize(existing), "duplicado": True}
     record["_id"] = result.inserted_id

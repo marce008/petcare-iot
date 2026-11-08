@@ -201,26 +201,33 @@ o un certificado emitido por una autoridad ya confiable en el dispositivo.
 
 ## ESP32: horarios y dispensaciones
 
-Cada ESP32 se autentica con un token exclusivo para la mascota. El endpoint
-`POST /pets/{pet_id}/device-token` genera el token y lo muestra una sola vez;
-la aplicación ya no incluye la opción de vinculación en el perfil de mascota.
-Configura el token en el dispositivo y no lo incluyas en repositorios ni lo
-compartas. Generar otro token revoca el anterior. El dispositivo debe usar
-HTTPS fuera de una red de desarrollo confiable.
+El ESP32 compartido se autoriza con un único token de dispositivo y queda
+asociado a una cuenta, no a una mascota. Configura `ESP32_DEVICE_TOKEN` con un
+secreto aleatorio largo y `ESP32_DEVICE_USER_EMAIL` con el correo de la cuenta
+propietaria en las variables de entorno del backend (por ejemplo, en Render).
+Graba el mismo token en el ESP32. No uses la MAC como credencial ni guardes el
+token en el repositorio. La app móvil no requiere cambios. Si falta esta
+configuración o la cuenta no existe, las rutas del dispositivo responden 503.
 
-El ESP32 consulta los horarios activos (hora local programada, días, porciones
-por día y datos básicos de la mascota) con:
+El ESP32 consulta todos los horarios activos de esa cuenta, para todas sus
+mascotas, con:
 
 ```text
 GET /device/feeding/schedules
-X-Device-Token: <token-de-esa-mascota>
+X-Device-Token: <token-del-dispositivo>
 ```
+
+Cada horario incluye `horario_id`, `mascota_id`, `mascota.nombre`, `hora`,
+`dias` y `porcion_gramos`. El horario identifica a la mascota a la que se
+atribuye la porción; esto no verifica qué animal comió físicamente. El
+dispensador debe tener un mecanismo de acceso individual si necesita confirmar
+la identidad del animal.
 
 Después de confirmar que el motor dispensó el alimento, registra el evento:
 
 ```text
 POST /device/feeding/events
-X-Device-Token: <token-de-esa-mascota>
+X-Device-Token: <token-del-dispositivo>
 Content-Type: application/json
 
 {
@@ -235,7 +242,10 @@ duplicar ese registro. Cada dispensación confirmada se guarda en
 `historial_alimentacion` con mascota, usuario, horario, gramos, hora del
 servidor y origen `esp32`; la respuesta incluye `push_status`. No informes una
 dispensación hasta que el movimiento del motor haya terminado correctamente.
-El historial alimenta también las notificaciones dentro de la app.
+El historial alimenta también los informes y notificaciones dentro de la app.
+En Render, usa la URL HTTPS pública de la API; el ESP32 no necesita la IP local
+de desarrollo. Mantén horarios y eventos pendientes en almacenamiento local
+del dispositivo para tolerar cortes de Wi-Fi.
 
 ## Notificaciones push
 
