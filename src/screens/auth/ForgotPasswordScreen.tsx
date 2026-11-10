@@ -17,6 +17,7 @@ import {
   confirmPasswordReset,
   requestPasswordReset,
 } from "../../services/api";
+import { filterLettersAndSpaces, isLettersAndSpaces } from "../../utils/textValidation";
 
 export default function ForgotPasswordScreen({ navigation }: any) {
   const { showDialog } = usePetcareDialog();
@@ -35,8 +36,8 @@ export default function ForgotPasswordScreen({ navigation }: any) {
       setError("Ingresa un correo electrónico válido.");
       return;
     }
-    if (!fullName.trim()) {
-      setError("Ingresa el nombre completo registrado en la cuenta.");
+    if (!isLettersAndSpaces(fullName)) {
+      setError("Ingresa el nombre completo registrado usando solo letras y espacios.");
       return;
     }
     setError("");
@@ -167,7 +168,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                 placeholderTextColor="#9CA3AF"
                 autoCapitalize="words"
                 value={fullName}
-                onChangeText={setFullName}
+                onChangeText={(value) => setFullName(filterLettersAndSpaces(value))}
               />
             </View>
           </>

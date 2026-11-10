@@ -7,6 +7,7 @@ import type { DateTimePickerChangeEvent } from '@react-native-community/datetime
 import { usePetcareDialog } from '../../components/PetcareDialogProvider';
 import { getApi, postApi } from '../../services/api';
 import { useAppTheme } from '../../contexts/ThemeContext';
+import { filterLettersAndSpaces } from '../../utils/textValidation';
 
 const APPOINTMENT_TYPES = ['Control anual', 'Desparasitación', 'Vacuna', 'Visita general', 'Otro'];
 
@@ -71,7 +72,6 @@ export default function NewAppointmentScreen({ navigation, route }: { navigation
     getApi<any[]>('/pets')
       .then((pets) => {
         setMascotas(pets);
-        if (pets.length === 1) setSelectedPet(pets[0].id);
       })
       .catch((error) => console.error('Error cargando mascotas para cita:', error));
   }, [userId]);
@@ -235,7 +235,7 @@ export default function NewAppointmentScreen({ navigation, route }: { navigation
             placeholder="Dr. Nombre"
             placeholderTextColor={palette.muted}
             value={veterinario}
-            onChangeText={setVeterinario}
+            onChangeText={(value) => setVeterinario(filterLettersAndSpaces(value))}
           />
         </View>
 
@@ -246,7 +246,7 @@ export default function NewAppointmentScreen({ navigation, route }: { navigation
             placeholder="Nombre de la clínica"
             placeholderTextColor={palette.muted}
             value={clinica}
-            onChangeText={setClinica}
+            onChangeText={(value) => setClinica(filterLettersAndSpaces(value))}
           />
         </View>
 

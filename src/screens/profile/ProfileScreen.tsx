@@ -173,9 +173,17 @@ export default function ProfileScreen({ navigation, route }: { navigation: any; 
       {
         text: 'Cerrar sesión',
         style: 'destructive',
-        onPress: () => {
-          setAccessToken(null);
-          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        onPress: async () => {
+          try {
+            await setAccessToken(null);
+            navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+          } catch (error) {
+            console.error('Error cerrando la sesión:', error);
+            showDialog(
+              'No se pudo cerrar sesión',
+              error instanceof Error ? error.message : 'Intenta de nuevo.',
+            );
+          }
         },
       },
     ]);

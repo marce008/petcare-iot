@@ -201,16 +201,20 @@ o un certificado emitido por una autoridad ya confiable en el dispositivo.
 
 ## ESP32: horarios y dispensaciones
 
-El ESP32 compartido se autoriza con un único token de dispositivo y queda
-asociado a una cuenta, no a una mascota. Configura `ESP32_DEVICE_TOKEN` con un
-secreto aleatorio largo y `ESP32_DEVICE_USER_EMAIL` con el correo de la cuenta
-propietaria en las variables de entorno del backend (por ejemplo, en Render).
-Graba el mismo token en el ESP32. No uses la MAC como credencial ni guardes el
-token en el repositorio. La app móvil no requiere cambios. Si falta esta
-configuración o la cuenta no existe, las rutas del dispositivo responden 503.
+El ESP32 se vincula a la cuenta y a todas sus mascotas mediante un token
+generado por la API desde una sesión autenticada. La app puede solicitarlo
+usando el ID de cualquiera de las mascotas de esa cuenta con
+`POST /pets/{pet_id}/device-token` y entregar el valor `device_token` al
+dispensador. La API guarda solo el hash del token en la cuenta. Al
+autenticarse, el dispositivo recibe los horarios activos de todas las mascotas
+de esa cuenta; los horarios de otras cuentas no se mezclan. Cada cuenta puede
+tener un token activo para el dispensador; generar uno nuevo reemplaza el
+anterior. No requiere variables de entorno por usuario en Render. El token
+literal `patitas123` no funcionará a menos que sea el valor generado y devuelto
+por esa ruta. No guardes el token generado en el repositorio.
 
-El ESP32 consulta todos los horarios activos de esa cuenta, para todas sus
-mascotas, con:
+El ESP32 consulta los horarios activos de todas las mascotas de la cuenta
+vinculada con:
 
 ```text
 GET /device/feeding/schedules

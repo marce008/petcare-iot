@@ -18,8 +18,6 @@ import { usePetcareDialog } from '../../components/PetcareDialogProvider';
 import { getApi, postApi } from '../../services/api';
 import { useAppTheme } from '../../contexts/ThemeContext';
 
-const FOOD_TYPES = ['Seco', 'Húmedo', 'Mixto'];
-const ALIMENTO_TYPES = ['Croquetas', 'Lata', 'Polvo', 'Barra'];
 const MIN_FEEDING_INTERVAL_MINUTES = 60;
 const MEAL_SLOTS = [
   { key: 'Desayuno', label: 'Desayuno' },
@@ -133,8 +131,6 @@ export default function ScheduleFeedingScreen({ navigation, route }: { navigatio
   });
   const [activeMealPicker, setActiveMealPicker] = useState<MealMoment | null>(null);
   const [pickerDate, setPickerDate] = useState<Date>(new Date());
-  const [tipoComida, setTipoComida] = useState('');
-  const [tipoAlimento, setTipoAlimento] = useState('');
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
   const [notas, setNotas] = useState('');
   const selectedPet = pets.find((item) => String(item.id) === mascotaId);
@@ -180,7 +176,6 @@ export default function ScheduleFeedingScreen({ navigation, route }: { navigatio
     getApi<any[]>('/pets')
       .then((mascotas) => {
         setPets(mascotas);
-        if (mascotas.length === 1) setMascotaId(mascotas[0].id);
       })
       .catch((error) => console.error('Error al cargar mascotas en programación:', error));
     getApi<any[]>('/feeding/schedules')
@@ -222,8 +217,7 @@ export default function ScheduleFeedingScreen({ navigation, route }: { navigatio
         horarios: selectedMeals.map((meal) => ({
           momento_comida: meal.momento_comida,
           hora: meal.hora,
-          tipo_comida: tipoComida || null,
-          tipo_alimento: tipoAlimento || null,
+          tipo_alimento: 'Croquetas',
           notas: notas || null,
         })),
       });
@@ -375,22 +369,6 @@ export default function ScheduleFeedingScreen({ navigation, route }: { navigatio
             ) : null}
           </View>
         ))}
-
-        <SelectField
-          label="Tipo de comida"
-          value={tipoComida}
-          placeholder="Seleccionar tipo"
-          options={FOOD_TYPES}
-          onSelect={setTipoComida}
-        />
-
-        <SelectField
-          label="Tipo de alimento"
-          value={tipoAlimento}
-          placeholder="Seleccionar alimento"
-          options={ALIMENTO_TYPES}
-          onSelect={setTipoAlimento}
-        />
 
         <Text style={[styles.label, { color: palette.text }]}>Repetir cada semana</Text>
         <View style={styles.weekDayRow}>

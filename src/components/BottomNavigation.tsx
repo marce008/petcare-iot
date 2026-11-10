@@ -1,11 +1,13 @@
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function BottomNavigation({ state, navigation }: any) {
   const { palette } = useAppTheme();
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.container, { backgroundColor: palette.card, borderTopColor: palette.border }]}>
+    <View style={[styles.container, { backgroundColor: palette.card, borderTopColor: palette.border, height: 75 + insets.bottom, paddingBottom: insets.bottom }]}>
       {/* Botón Home */}
       <TouchableOpacity onPress={() => navigation.navigate("Home")}>
         <Ionicons

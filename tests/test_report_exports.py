@@ -182,7 +182,7 @@ class DeviceAlertTests(unittest.IsolatedAsyncioTestCase):
 
         with patch.object(
             main,
-            "_authenticated_device_user",
+            "_authenticated_device",
             new=AsyncMock(return_value={"_id": ObjectId(user_id)}),
         ):
             result = await main.record_device_feeding(
@@ -220,7 +220,7 @@ class DeviceAlertTests(unittest.IsolatedAsyncioTestCase):
         alert_collection.find_one = AsyncMock(return_value={"_id": alert_id})
         with patch.object(
             main,
-            "_authenticated_device_user",
+            "_authenticated_device",
             new=AsyncMock(return_value={"_id": ObjectId(user_id)}),
         ):
             duplicate_result = await main.record_device_feeding(

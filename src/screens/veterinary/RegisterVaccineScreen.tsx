@@ -7,6 +7,8 @@ import type { DateTimePickerChangeEvent } from '@react-native-community/datetime
 import { usePetcareDialog } from '../../components/PetcareDialogProvider';
 import { getApi, patchApi, postApi } from '../../services/api';
 import { useAppTheme } from '../../contexts/ThemeContext';
+import * as Notifications from 'expo-notifications';
+import { filterLettersAndSpaces } from '../../utils/textValidation';
 
 const VACCINES_BY_SPECIES: Record<string, string[]> = {
   perro: ['Rabia', 'DHPP', 'Bordetella', 'Leptospirosis', 'Influenza canina'],
@@ -18,6 +20,46 @@ const VACCINES_BY_SPECIES: Record<string, string[]> = {
   ],
 };
 const OTHER_VACCINE_OPTION = 'Otro';
+
+async function scheduleVaccineReminder(
+  date: string,
+  vaccineName: string,
+  petName: string,
+  vaccineId: string,
+) {
+  const vaccinationDate = new Date(`${date}T09:00:00`);
+  if (Number.isNaN(vaccinationDate.getTime())) {
+    throw new Error('No se pudo interpretar la fecha programada de la vacuna.');
+  }
+
+  const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduledNotifications
+      .filter((notification) => notification.content.data?.vaccineId === vaccineId)
+      .map((notification) =>
+        Notifications.cancelScheduledNotificationAsync(notification.identifier),
+      ),
+  );
+
+  for (const daysBefore of [2, 1]) {
+    const reminderDate = new Date(
+      vaccinationDate.getTime() - daysBefore * 24 * 60 * 60 * 1000,
+    );
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Recordatorio de vacuna: ${vaccineName}`,
+        body: `${petName} tiene una vacuna programada en ${daysBefore} día${daysBefore === 1 ? '' : 's'}.`,
+        data: { vaccineId },
+        sound: true,
+        channelId: 'petcare-alerts',
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: reminderDate,
+      },
+    });
+  }
+}
 
 export default function RegisterVaccineScreen({ navigation, route }: { navigation: any; route: any }) {
   const { showDialog } = usePetcareDialog();
@@ -75,8 +117,6 @@ export default function RegisterVaccineScreen({ navigation, route }: { navigatio
           setVeterinario(vaccineRecord.veterinario || '');
           setClinica(vaccineRecord.clinica || '');
           setNotas(vaccineRecord.notas || '');
-        } else if (pets.length > 0) {
-          setSelectedPet(pets[0].id);
         }
       })
       .catch((error) => console.error('Error cargando mascotas:', error));
@@ -163,11 +203,15 @@ export default function RegisterVaccineScreen({ navigation, route }: { navigatio
       showDialog('Error', 'La fecha programada debe ser hoy o una fecha futura.');
       return;
     }
+    if (isEditing && !fechaAplicacion && proximaFecha && proximaFecha < today) {
+      showDialog('Error', 'La fecha programada debe ser hoy o una fecha futura.');
+      return;
+    }
     if (!isEditing && !isFutureEntry && !fechaAplicacion) {
       showDialog('Error', 'Selecciona la fecha en que se aplicó la vacuna.');
       return;
     }
-    if (!isEditing && !isFutureEntry && fechaAplicacion > today) {
+    if (!isFutureEntry && fechaAplicacion && fechaAplicacion > today) {
       showDialog('Error', 'La fecha de aplicación no puede ser futura.');
       return;
     }
@@ -183,13 +227,41 @@ export default function RegisterVaccineScreen({ navigation, route }: { navigatio
         numero_lote: isEditing ? numeroLote || null : null,
         notas: isEditing ? notas || null : null,
       };
+      let savedVaccineId = String(vaccineRecord?.id || '');
       if (isEditing) {
         const { mascota_id: _petId, ...updates } = vaccineData;
         await patchApi(`/vaccines/${encodeURIComponent(vaccineRecord.id)}`, updates);
       } else {
-        await postApi('/vaccines', vaccineData);
+        const savedVaccine = await postApi<{ id?: string | number }>('/vaccines', vaccineData);
+        savedVaccineId = String(savedVaccine?.id || '');
+      }
+      const reminderDate =
+        isFutureEntry || (isEditing && !fechaAplicacion && proximaFecha)
+          ? proximaFecha
+          : '';
+      let reminderError: unknown;
+      if (reminderDate) {
+        try {
+          await scheduleVaccineReminder(
+            reminderDate,
+            vacunaFinal,
+            selectedPetData?.nombre || 'tu mascota',
+            savedVaccineId || `${selectedPet}:${reminderDate}:${vacunaFinal}`,
+          );
+        } catch (error) {
+          reminderError = error;
+          console.error('No se pudieron programar los recordatorios de la vacuna:', error);
+        }
       }
       navigation.replace('VaccineSaved', { userId, isEditing });
+      if (reminderError) {
+        showDialog(
+          'Vacuna guardada sin recordatorios',
+          reminderError instanceof Error
+            ? reminderError.message
+            : 'No se pudieron programar las notificaciones. Revisa los permisos de la aplicación.',
+        );
+      }
     } catch (error) {
       console.error('Error guardando vacuna:', error);
       showDialog('Error', error instanceof Error ? error.message : 'Ocurrió un error al guardar la vacuna.');
@@ -294,6 +366,11 @@ export default function RegisterVaccineScreen({ navigation, route }: { navigatio
             value={getDateValue(activeDateField === 'application' ? fechaAplicacion : proximaFecha)}
             mode="date"
             display={Platform.OS === 'ios' ? 'compact' : 'calendar'}
+            maximumDate={
+              activeDateField === 'application'
+                ? getLocalDateStart(new Date())
+                : undefined
+            }
             accentColor={palette.positive}
             themeVariant={isDarkMode ? 'dark' : 'light'}
             onValueChange={(_event: DateTimePickerChangeEvent, selectedDate?: Date) => {
@@ -313,10 +390,10 @@ export default function RegisterVaccineScreen({ navigation, route }: { navigatio
         {isEditing ? (
           <>
             <Text style={[styles.label, { color: palette.text }]}>Veterinario</Text>
-            <TextInput style={[styles.input, { backgroundColor: palette.input, borderColor: palette.border, color: palette.text }]} placeholderTextColor={palette.muted} placeholder="Dr. Nombre" value={veterinario} onChangeText={setVeterinario} />
+            <TextInput style={[styles.input, { backgroundColor: palette.input, borderColor: palette.border, color: palette.text }]} placeholderTextColor={palette.muted} placeholder="Dr. Nombre" value={veterinario} onChangeText={(value) => setVeterinario(filterLettersAndSpaces(value))} />
 
             <Text style={[styles.label, { color: palette.text }]}>Clínica / Hospital</Text>
-            <TextInput style={[styles.input, { backgroundColor: palette.input, borderColor: palette.border, color: palette.text }]} placeholderTextColor={palette.muted} placeholder="Nombre de la clínica" value={clinica} onChangeText={setClinica} />
+            <TextInput style={[styles.input, { backgroundColor: palette.input, borderColor: palette.border, color: palette.text }]} placeholderTextColor={palette.muted} placeholder="Nombre de la clínica" value={clinica} onChangeText={(value) => setClinica(filterLettersAndSpaces(value))} />
 
             <Text style={[styles.label, { color: palette.text }]}>Notas</Text>
             <TextInput style={[styles.input, { height: 100, backgroundColor: palette.input, borderColor: palette.border, color: palette.text }]} placeholderTextColor={palette.muted} placeholder="Reacciones, observaciones..." value={notas} onChangeText={setNotas} multiline />
@@ -384,4 +461,8 @@ function getLocalDateKey(date: Date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function getLocalDateStart(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

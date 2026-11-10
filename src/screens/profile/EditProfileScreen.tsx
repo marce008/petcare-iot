@@ -14,6 +14,7 @@ import {
 import { usePetcareDialog } from '../../components/PetcareDialogProvider';
 import { getApi, patchApi } from '../../services/api';
 import { useAppTheme } from '../../contexts/ThemeContext';
+import { filterLettersAndSpaces, isLettersAndSpaces } from '../../utils/textValidation';
 
 function formatNationalPhone(digits: string, country: CountryCode) {
   return digits ? new AsYouType(country).input(digits) : '';
@@ -179,6 +180,14 @@ export default function EditProfileScreen({ navigation, route }: { navigation: a
       showDialog('Completa los campos', 'Nombre y correo son obligatorios.');
       return;
     }
+    if (!isLettersAndSpaces(name)) {
+      showDialog('Nombre no válido', 'El nombre solo puede contener letras y espacios.');
+      return;
+    }
+    if (city.trim() && !isLettersAndSpaces(city)) {
+      showDialog('Ciudad no válida', 'La ciudad solo puede contener letras y espacios.');
+      return;
+    }
     if (phoneDigits && !phoneIsValid) {
       showDialog('Revisa el número', 'Ingresa un número válido para el país seleccionado.');
       return;
@@ -250,7 +259,7 @@ export default function EditProfileScreen({ navigation, route }: { navigation: a
           <TextInput
             style={[styles.input, { backgroundColor: palette.input, borderColor: palette.border, color: palette.text }]}
             value={name}
-            onChangeText={setName}
+            onChangeText={(value) => setName(filterLettersAndSpaces(value))}
             placeholder="Tu nombre"
             placeholderTextColor="#9CA3AF"
           />
@@ -332,7 +341,7 @@ export default function EditProfileScreen({ navigation, route }: { navigation: a
           <TextInput
             style={[styles.input, { backgroundColor: palette.input, borderColor: palette.border, color: palette.text }]}
             value={city}
-            onChangeText={setCity}
+            onChangeText={(value) => setCity(filterLettersAndSpaces(value))}
             placeholder="Ciudad de México"
             placeholderTextColor="#9CA3AF"
           />

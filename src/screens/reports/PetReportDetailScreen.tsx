@@ -428,77 +428,69 @@ export default function PetReportDetailScreen({ route, navigation }: { route: an
           </View>
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: palette.text }]}>Vacunas</Text>
-        </View>
-        {vaccines.length === 0 ? (
-          <View style={[styles.emptyBlock, { backgroundColor: palette.card }]}>
-            <Text style={[styles.emptyText, { color: palette.muted }]}>No hay vacunas registradas para esta mascota.</Text>
-          </View>
-        ) : (
-          vaccines.map((vaccine) => (
-            <View key={vaccine.id} style={[styles.vaccineBlock, { backgroundColor: palette.card }]}>
-              <Text style={[styles.vaccineName, { color: palette.text }]}>{vaccine.nombre_vacuna || 'Vacuna'}</Text>
-              <Text style={[styles.vaccineDetail, { color: palette.muted }]}>
-                {language === 'Inglés' ? 'Administered: ' : 'Aplicada: '}
-                {formatAppDate(vaccine.fecha_aplicacion, locale)}
-              </Text>
-              {vaccine.proxima_dosis ? (
+        {vaccines.length > 0 ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: palette.text }]}>Vacunas</Text>
+            </View>
+            {vaccines.map((vaccine) => (
+              <View key={vaccine.id} style={[styles.vaccineBlock, { backgroundColor: palette.card }]}>
+                <Text style={[styles.vaccineName, { color: palette.text }]}>{vaccine.nombre_vacuna || 'Vacuna'}</Text>
                 <Text style={[styles.vaccineDetail, { color: palette.muted }]}>
-                  {language === 'Inglés' ? 'Next dose: ' : 'Próxima dosis: '}
-                  {formatAppDate(vaccine.proxima_dosis, locale)}
+                  {language === 'Inglés' ? 'Administered: ' : 'Aplicada: '}
+                  {formatAppDate(vaccine.fecha_aplicacion, locale)}
                 </Text>
-              ) : null}
-            </View>
-          ))
-        )}
-
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: palette.text }]}>Próximos horarios</Text>
-        </View>
-        {schedules.length === 0 ? (
-          <View style={[styles.emptyBlock, { backgroundColor: palette.card }]}>
-            <Text style={[styles.emptyText, { color: palette.muted }]}>No hay horarios activos para esta mascota.</Text>
-          </View>
-        ) : (
-          schedules.map((item) => (
-            <View key={`${item.hora}-${item.porcion_gramos}`} style={[styles.scheduleBlock, { backgroundColor: palette.card }]}>
-              <View style={styles.scheduleHeader}>
-                <Text style={[styles.scheduleTime, { color: palette.text }]}>{item.hora}</Text>
-                <Text style={[styles.scheduleAmount, { color: palette.positive }]}>{item.porcion_gramos}g</Text>
+                {vaccine.proxima_dosis ? (
+                  <Text style={[styles.vaccineDetail, { color: palette.muted }]}>
+                    {language === 'Inglés' ? 'Next dose: ' : 'Próxima dosis: '}
+                    {formatAppDate(vaccine.proxima_dosis, locale)}
+                  </Text>
+                ) : null}
               </View>
-              <Text style={[styles.scheduleDetail, { color: palette.muted }]}>
-                {item.tipo_alimento || 'Alimento'}
-              </Text>
-              <Text style={[styles.scheduleDetail, { color: palette.muted }]}>
-                {item.repetir || 'Todos los días'}
-              </Text>
-            </View>
-          ))
-        )}
+            ))}
+          </>
+        ) : null}
 
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: palette.text }]}>Historial de alimentación</Text>
-        </View>
-        {history.length === 0 ? (
-          <View style={[styles.emptyBlock, { backgroundColor: palette.card }]}>
-            <Text style={[styles.emptyText, { color: palette.muted }]}>
-              Aún no hay registros de alimentación para esta mascota.
-            </Text>
-          </View>
-        ) : (
-          history.map((item) => (
-            <View key={item.id || item.fecha_hora} style={[styles.historyRow, { backgroundColor: palette.card }]}>
-              <View style={styles.historyInfo}>
-                <Text style={[styles.historyTime, { color: palette.text }]}>{formatAppDateTime(item.fecha_hora, locale)}</Text>
-                <Text style={[styles.historyType, { color: palette.muted }]}>
-                  {item.tipo_dispensacion || (item.horario_id ? 'Programada' : 'Alimentación registrada')}
+        {schedules.length > 0 ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: palette.text }]}>Próximos horarios</Text>
+            </View>
+            {schedules.map((item) => (
+              <View key={`${item.hora}-${item.porcion_gramos}`} style={[styles.scheduleBlock, { backgroundColor: palette.card }]}>
+                <View style={styles.scheduleHeader}>
+                  <Text style={[styles.scheduleTime, { color: palette.text }]}>{item.hora}</Text>
+                  <Text style={[styles.scheduleAmount, { color: palette.positive }]}>{item.porcion_gramos}g</Text>
+                </View>
+                <Text style={[styles.scheduleDetail, { color: palette.muted }]}>
+                  {item.tipo_alimento || 'Alimento'}
+                </Text>
+                <Text style={[styles.scheduleDetail, { color: palette.muted }]}>
+                  {item.repetir || 'Todos los días'}
                 </Text>
               </View>
-              <Text style={[styles.historyAmount, { color: palette.positive }]}>{item.porcion_entregada}g</Text>
+            ))}
+          </>
+        ) : null}
+
+        {history.length > 0 ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: palette.text }]}>Historial de alimentación</Text>
             </View>
-          ))
-        )}
+            {history.map((item) => (
+              <View key={item.id || item.fecha_hora} style={[styles.historyRow, { backgroundColor: palette.card }]}>
+                <View style={styles.historyInfo}>
+                  <Text style={[styles.historyTime, { color: palette.text }]}>{formatAppDateTime(item.fecha_hora, locale)}</Text>
+                  <Text style={[styles.historyType, { color: palette.muted }]}>
+                    {item.tipo_dispensacion || (item.horario_id ? 'Programada' : 'Alimentación registrada')}
+                  </Text>
+                </View>
+                <Text style={[styles.historyAmount, { color: palette.positive }]}>{item.porcion_entregada}g</Text>
+              </View>
+            ))}
+          </>
+        ) : null}
       </ScrollView>
       <BodyConditionAssessmentModal
         visible={showBodyConditionModal}

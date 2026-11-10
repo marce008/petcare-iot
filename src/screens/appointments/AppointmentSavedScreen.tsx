@@ -10,7 +10,6 @@ export default function AppointmentSavedScreen({ navigation, route }: { navigati
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
-      <View style={styles.spacer} />
       <View style={[styles.card, { backgroundColor: palette.card }]}>
         <View style={styles.iconWrap}>
           <View style={[styles.iconBg, { backgroundColor: palette.positive }]}><Ionicons name="checkmark" size={36} color="#fff" /></View>
@@ -29,15 +28,13 @@ export default function AppointmentSavedScreen({ navigation, route }: { navigati
           <Text style={[styles.secondaryText, { color: palette.text }]}>Regresar</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ flex: 1 }} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center' },
-  spacer: { height: 80 },
-  card: { width: '86%', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  card: { width: '100%', maxWidth: 380, alignSelf: 'center', alignItems: 'center', borderRadius: 20, paddingHorizontal: 24, paddingVertical: 28 },
   iconWrap: { marginBottom: 24 },
   iconBg: { width: 96, height: 96, borderRadius: 24, backgroundColor: '#22C55E', justifyContent: 'center', alignItems: 'center', shadowColor: '#22C55E', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20 },
   title: { fontSize: 22, fontWeight: '800', marginBottom: 8 },

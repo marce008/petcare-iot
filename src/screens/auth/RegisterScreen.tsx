@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { usePetcareDialog } from "../../components/PetcareDialogProvider";
 import { registerWithApi } from "../../services/api";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { filterLettersAndSpaces, isLettersAndSpaces } from "../../utils/textValidation";
 
 export default function RegisterScreen({ navigation }: any) {
   const { showDialog } = usePetcareDialog();
@@ -37,7 +38,7 @@ export default function RegisterScreen({ navigation }: any) {
       showDialog("Error", "Todos los campos obligatorios deben estar llenos.");
       return;
     }
-    if (!/^[\p{L} ]+$/u.test(fullName.trim())) {
+    if (!isLettersAndSpaces(fullName)) {
       showDialog(
         "Nombre no válido",
         "El nombre solo puede contener letras y espacios.",
@@ -113,7 +114,7 @@ export default function RegisterScreen({ navigation }: any) {
           <Text style={[styles.label, { color: palette.text }]}>Nombre completo</Text>
           <View style={[styles.box, { backgroundColor: palette.input, borderColor: palette.border }]}>
             <Ionicons name="person-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
-            <TextInput style={[styles.input, { color: palette.text }]} placeholder="Sara Garcia" placeholderTextColor={palette.muted} value={fullName} onChangeText={setFullName} />
+            <TextInput style={[styles.input, { color: palette.text }]} placeholder="Sara Garcia" placeholderTextColor={palette.muted} value={fullName} onChangeText={(value) => setFullName(filterLettersAndSpaces(value))} />
           </View>
 
           <Text style={[styles.label, { color: palette.text }]}>Correo electrónico</Text>

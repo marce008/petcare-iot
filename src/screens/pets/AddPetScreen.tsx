@@ -20,6 +20,7 @@ import { usePetcareDialog } from '../../components/PetcareDialogProvider';
 import { patchApi, postApi } from '../../services/api';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { getPetEmoji } from '../../utils/petEmoji';
+import { filterLettersAndSpaces, isLettersAndSpaces } from '../../utils/textValidation';
 
 const ESPECIE_OPTIONS = ['Perro', 'Gato', 'Ave', 'Roedor', 'Conejo', 'Caballo', 'Reptil', 'Pez', 'Otro'];
 const GENERO_OPTIONS = ['Macho', 'Hembra', 'Otro'];
@@ -36,6 +37,48 @@ const BREEDS_BY_SPECIES: Record<string, string[]> = {
 };
 const CUSTOM_BREED = 'Otro';
 const MAX_PHOTO_SIZE_BYTES = 5 * 1024 * 1024;
+const SIZE_DESCRIPTIONS_BY_SPECIES: Record<string, Record<string, string>> = {
+  perro: {
+    Pequeña: 'Menos de 10 kg',
+    Mediana: 'De 10 a 22 kg',
+    Grande: 'Más de 22 kg',
+  },
+  gato: {
+    Pequeña: 'Menos de 3 kg',
+    Mediana: 'De 3 a 6 kg',
+    Grande: 'Más de 6 kg',
+  },
+  ave: {
+    Pequeña: 'Menos de 100 g',
+    Mediana: 'De 100 g a 1 kg',
+    Grande: 'Más de 1 kg',
+  },
+  roedor: {
+    Pequeña: 'Menos de 500 g',
+    Mediana: 'De 500 g a 2 kg',
+    Grande: 'Más de 2 kg',
+  },
+  conejo: {
+    Pequeña: 'Menos de 2 kg',
+    Mediana: 'De 2 a 5 kg',
+    Grande: 'Más de 5 kg',
+  },
+  caballo: {
+    Pequeña: 'Menos de 350 kg',
+    Mediana: 'De 350 a 600 kg',
+    Grande: 'Más de 600 kg',
+  },
+  reptil: {
+    Pequeña: 'Menos de 1 kg',
+    Mediana: 'De 1 a 10 kg',
+    Grande: 'Más de 10 kg',
+  },
+  pez: {
+    Pequeña: 'Menos de 100 g',
+    Mediana: 'De 100 g a 1 kg',
+    Grande: 'Más de 1 kg',
+  },
+};
 
 function SelectField({
   label,
@@ -44,6 +87,7 @@ function SelectField({
   options,
   onSelect,
   disabled = false,
+  optionDescriptions,
 }: {
   label: string;
   value: string;
@@ -51,6 +95,7 @@ function SelectField({
   options: string[];
   onSelect: (value: string) => void;
   disabled?: boolean;
+  optionDescriptions?: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const { palette } = useAppTheme();
@@ -82,7 +127,14 @@ function SelectField({
                     setOpen(false);
                   }}
                 >
-                  <Text style={[styles.optionText, { color: palette.text }]}>{item}</Text>
+                  <View>
+                    <Text style={[styles.optionText, { color: palette.text }]}>{item}</Text>
+                    {optionDescriptions?.[item] ? (
+                      <Text style={[styles.helperText, styles.optionDescription, { color: palette.muted }]}>
+                        {optionDescriptions[item]}
+                      </Text>
+                    ) : null}
+                  </View>
                 </Pressable>
               )}
               ItemSeparatorComponent={() => <View style={styles.optionDivider} />}
@@ -247,6 +299,10 @@ export default function AddPetScreen({ navigation, route }: { navigation: any; r
       showDialog('Error', 'Completa todos los campos obligatorios.');
       return;
     }
+    if (!isLettersAndSpaces(nombre)) {
+      showDialog('Nombre no válido', 'El nombre de la mascota solo puede contener letras y espacios.');
+      return;
+    }
     if (!Number.isFinite(Number(peso)) || Number(peso) <= 0) {
       showDialog('Peso no válido', 'Ingresa un peso mayor que cero.');
       return;
@@ -345,7 +401,7 @@ export default function AddPetScreen({ navigation, route }: { navigation: any; r
           placeholderTextColor={palette.muted}
           placeholder="ej. Max"
           value={nombre}
-          onChangeText={setNombre}
+          onChangeText={(value) => setNombre(filterLettersAndSpaces(value))}
         />
 
         <SelectField
@@ -395,7 +451,11 @@ export default function AddPetScreen({ navigation, route }: { navigation: any; r
           placeholder="Seleccionar tamaño"
           options={SIZE_OPTIONS}
           onSelect={setTamano}
+          optionDescriptions={SIZE_DESCRIPTIONS_BY_SPECIES[normalizedSpecies]}
         />
+        <Text style={[styles.helperText, { color: palette.muted }]}>
+          Rangos orientativos según la especie; la raza y la edad también influyen. Para otras especies, consulta a un veterinario.
+        </Text>
 
         <View style={styles.row}>
           <View style={styles.dateField}>
@@ -550,6 +610,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16 },
   optionItem: { paddingVertical: 16 },
   optionText: { fontSize: 16, color: '#111827' },
+  optionDescription: { marginTop: 2, marginBottom: 0, marginHorizontal: 0 },
   optionDivider: { height: 1, backgroundColor: '#E5E7EB' },
   modalClose: { marginTop: 16, alignSelf: 'flex-end' },
   modalCloseText: { color: '#22C55E', fontWeight: '700' },

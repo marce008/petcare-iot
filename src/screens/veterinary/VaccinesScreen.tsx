@@ -151,9 +151,7 @@ export default function VaccinesScreen({ navigation, route }: { navigation: any;
           <Ionicons name="arrow-back" size={24} color={palette.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: palette.text }]}>Vacunas</Text>
-        <TouchableOpacity style={[styles.addButton, { backgroundColor: palette.card }]} onPress={() => navigation.navigate('RegisterVaccine', { userId, vaccineMode: 'past' })}>
-          <Ionicons name="add" size={24} color={palette.positive} />
-        </TouchableOpacity>
+        <View style={{ width: 44 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -249,7 +247,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingHorizontal: 20, paddingBottom: 18 },
   backButton: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: '#111' },
-  addButton: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
   content: { paddingHorizontal: 20, paddingBottom: 40 },
   infoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', borderRadius: 16, padding: 16, marginBottom: 20 },
   infoIcon: { marginRight: 10 },

@@ -5,9 +5,11 @@ import { LanguageProvider } from './src/contexts/LanguageContext';
 import { StatusBar } from 'expo-status-bar';
 import { useAppTheme } from './src/contexts/ThemeContext';
 import * as Notifications from 'expo-notifications';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
+    shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
@@ -33,10 +35,12 @@ function ThemedApp() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <ThemeProvider>
-        <ThemedApp />
-      </ThemeProvider>
-    </LanguageProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <ThemedApp />
+        </ThemeProvider>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }

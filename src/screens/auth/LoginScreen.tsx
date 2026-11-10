@@ -13,12 +13,14 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { usePetcareDialog } from "../../components/PetcareDialogProvider";
 import { loginWithApi, setAccessToken } from "../../services/api";
 import { useAppTheme } from "../../contexts/ThemeContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { showDialog } = usePetcareDialog();
   const { palette } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,7 +51,7 @@ export default function LoginScreen() {
       setLoading(true);
       setEmailError("");
       const result = await loginWithApi({ email: email.toLowerCase().trim(), password });
-      setAccessToken(result.access_token);
+      await setAccessToken(result.access_token, result.user);
       navigation.replace("MainApp", {
         userId: result.user.id,
         userEmail: result.user.email,
@@ -75,7 +77,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(24, insets.bottom + 16) }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

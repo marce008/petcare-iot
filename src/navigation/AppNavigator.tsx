@@ -1,6 +1,8 @@
+import React, { useEffect, useState } from "react";
 import { DarkTheme, DefaultTheme, NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useAppTheme } from "../contexts/ThemeContext";
+import { getApi, restoreSession } from "../services/api";
 
 // Importaciones de pantallas
 import LoginScreen from "../screens/auth/LoginScreen";
@@ -30,6 +32,9 @@ const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   const { isDarkMode, palette } = useAppTheme();
+  const [sessionReady, setSessionReady] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+  const [initialParams, setInitialParams] = useState<Record<string, string>>({});
   const navigationTheme = isDarkMode
     ? {
         ...DarkTheme,
@@ -44,16 +49,57 @@ export default function AppNavigator() {
       }
     : DefaultTheme;
 
+  useEffect(() => {
+    let active = true;
+    restoreSession()
+      .then(async (session) => {
+        if (!active || !session) return;
+        setHasSession(true);
+        if (session.user) {
+          setInitialParams({
+            userId: session.user.id,
+            userEmail: session.user.email,
+            userName: session.user.nombre,
+          });
+          return;
+        }
+
+        try {
+          const user = await getApi<{ id: string; email: string; nombre: string }>('/profile');
+          if (active) {
+            setInitialParams({
+              userId: user.id,
+              userEmail: user.email,
+              userName: user.nombre,
+            });
+          }
+        } catch (error) {
+          console.error('No se pudo recuperar el perfil de la sesión guardada:', error);
+        }
+      })
+      .catch((error) => {
+        console.error("No se pudo restaurar la sesión guardada:", error);
+      })
+      .finally(() => {
+        if (active) setSessionReady(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!sessionReady) return null;
+
   return (
     <NavigationContainer theme={navigationTheme}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName={hasSession ? "MainApp" : "Login"} screenOptions={{ headerShown: false }}>
         {/* RUTAS DE AUTENTICACIÓN */}
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         
         {/* RUTA PRINCIPAL (Una vez logueado) */}
-        <Stack.Screen name="MainApp" component={TabNavigator} />
+        <Stack.Screen name="MainApp" component={TabNavigator} initialParams={initialParams} />
         <Stack.Screen name="AddPet" component={AddPetScreen} />
         <Stack.Screen name="PetAdded" component={PetAddedScreen} />
         <Stack.Screen name="Feeding" component={FeedingScreen} />

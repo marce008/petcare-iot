@@ -1,6 +1,9 @@
 import { File, Paths } from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
+const ACCESS_TOKEN_STORAGE_KEY = 'petcare.accessToken';
+const AUTH_USER_STORAGE_KEY = 'petcare.authUser';
   
 export type ApiHealth = {
   status: 'ok';
@@ -23,8 +26,43 @@ export type ChartType = 'histograma' | 'barras' | 'lineas';
 
 let accessToken: string | null = null;
 
-export function setAccessToken(token: string | null) {
+export async function setAccessToken(token: string | null, user?: ApiUser) {
+  if (token) {
+    await AsyncStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
+    if (user) {
+      await AsyncStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+    } else {
+      await AsyncStorage.removeItem(AUTH_USER_STORAGE_KEY);
+    }
+  } else {
+    await AsyncStorage.multiRemove([ACCESS_TOKEN_STORAGE_KEY, AUTH_USER_STORAGE_KEY]);
+  }
   accessToken = token;
+}
+
+export async function restoreSession() {
+  const [token, userJson] = await Promise.all([
+    AsyncStorage.getItem(ACCESS_TOKEN_STORAGE_KEY),
+    AsyncStorage.getItem(AUTH_USER_STORAGE_KEY),
+  ]);
+  accessToken = token;
+
+  if (!token) return null;
+  if (!userJson) return { token, user: null };
+
+  try {
+    const user = JSON.parse(userJson) as Partial<ApiUser>;
+    if (
+      typeof user.id === 'string' &&
+      typeof user.nombre === 'string' &&
+      typeof user.email === 'string'
+    ) {
+      return { token, user: user as ApiUser };
+    }
+  } catch (error) {
+    console.error('No se pudieron leer los datos guardados de la sesión:', error);
+  }
+  return { token, user: null };
 }
 
 function getAuthorizationHeader() {
