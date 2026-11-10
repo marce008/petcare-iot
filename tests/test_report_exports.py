@@ -195,6 +195,13 @@ class DeviceAlertTests(unittest.IsolatedAsyncioTestCase):
                 "device-token",
             )
 
+        schedule_collection.find_one.assert_awaited_once_with(
+            {
+                "_id": schedule_id,
+                "activo": 1,
+                "usuario_id": user_id,
+            }
+        )
         alert = alert_collection.insert_one.await_args.args[0]
         self.assertEqual(result["alerta_id"], str(alert_id))
         self.assertEqual(result["push_status"], "no_registered_token")

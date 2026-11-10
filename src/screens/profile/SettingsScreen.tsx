@@ -4,7 +4,7 @@ import { AppText as Text } from '../../contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { usePetcareDialog } from '../../components/PetcareDialogProvider';
-import { getApi, patchApi } from '../../services/api';
+import { getApi, patchApi, postApi } from '../../services/api';
 import { useAppTheme } from '../../contexts/ThemeContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -41,6 +41,14 @@ const translations = {
     language: 'Idioma',
     units: 'Unidades',
     dateFormat: 'Formato de fecha',
+    device: 'Dispensador ESP32',
+    pairDevice: 'Vincular a esta cuenta',
+    pairDeviceDescription: 'El dispensador recibirá horarios de todas las mascotas de esta cuenta. Vincular otra cuenta cambiará la cuenta activa del dispositivo.',
+    confirmPairTitle: 'Vincular dispensador',
+    confirmPairMessage: 'Esta cuenta quedará vinculada al dispensador y reemplazará cualquier vínculo anterior.',
+    devicePaired: 'El dispensador quedó vinculado a esta cuenta.',
+    pairError: 'No se pudo vincular el dispensador.',
+    pairing: 'Vinculando...',
     clearCache: 'Limpiar caché',
     cancel: 'Cancelar',
     accept: 'Aceptar',
@@ -59,6 +67,14 @@ const translations = {
     language: 'Language',
     units: 'Units',
     dateFormat: 'Date format',
+    device: 'ESP32 feeder',
+    pairDevice: 'Link to this account',
+    pairDeviceDescription: 'The feeder will receive schedules for every pet in this account. Linking another account changes the device active account.',
+    confirmPairTitle: 'Link feeder',
+    confirmPairMessage: 'This account will be linked to the feeder and replace any previous link.',
+    devicePaired: 'The feeder is now linked to this account.',
+    pairError: 'Could not link the feeder.',
+    pairing: 'Linking...',
     clearCache: 'Clear cache',
     cancel: 'Cancel',
     accept: 'Accept',
@@ -83,6 +99,7 @@ export default function SettingsScreen({ navigation, route }: { navigation: any;
     date_format: 'DD/MM/AAAA',
   };
   const [settings, setSettings] = React.useState<SettingsType>(defaultSettings);
+  const [pairingDevice, setPairingDevice] = React.useState(false);
   const colors = {
     background: palette.background,
     card: palette.card,
@@ -174,6 +191,30 @@ export default function SettingsScreen({ navigation, route }: { navigation: any;
     ]);
   };
 
+  const pairDevice = async () => {
+    if (pairingDevice) return;
+    setPairingDevice(true);
+    try {
+      await postApi<{ paired: boolean }>('/device/pair', {});
+      showDialog(t('device'), t('devicePaired'));
+    } catch (error) {
+      console.error('Error pairing ESP32 device:', error);
+      showDialog(
+        t('device'),
+        error instanceof Error ? error.message : t('pairError'),
+      );
+    } finally {
+      setPairingDevice(false);
+    }
+  };
+
+  const confirmPairDevice = () => {
+    showDialog(t('confirmPairTitle'), t('confirmPairMessage'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('accept'), onPress: () => void pairDevice() },
+    ]);
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.secondaryBackground }]}> 
       <View style={styles.topBar}>
@@ -235,6 +276,22 @@ export default function SettingsScreen({ navigation, route }: { navigation: any;
           </View>
         </View>
 
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('device')}</Text>
+          <Text style={[styles.rowDescription, { color: colors.muted, maxWidth: '100%', marginBottom: 14 }]}>
+            {t('pairDeviceDescription')}
+          </Text>
+          <TouchableOpacity
+            style={[styles.deviceButton, { backgroundColor: colors.positive }]}
+            onPress={confirmPairDevice}
+            disabled={pairingDevice}
+          >
+            <Text style={styles.deviceButtonText}>
+              {pairingDevice ? t('pairing') : t('pairDevice')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}> 
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('visualization')}</Text>
           <TouchableOpacity style={styles.selectRow} onPress={() => chooseOption(t('language'), languageOptions, 'language')}>
@@ -290,4 +347,6 @@ const styles = StyleSheet.create({
   selectValue: { marginRight: 10 },
   dangerButton: { marginTop: 16, backgroundColor: '#FEF3F2', paddingVertical: 14, borderRadius: 16, alignItems: 'center' },
   dangerText: { color: '#B91C1C', fontWeight: '700' },
+  deviceButton: { paddingVertical: 14, borderRadius: 16, alignItems: 'center' },
+  deviceButtonText: { color: '#FFFFFF', fontWeight: '700' },
 });

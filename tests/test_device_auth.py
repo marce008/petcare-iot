@@ -1,4 +1,3 @@
-import hashlib
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -10,63 +9,80 @@ from backend import main
 
 
 class DeviceAuthenticationTests(unittest.IsolatedAsyncioTestCase):
-    async def test_device_token_is_saved_on_account_not_pet(self):
+    async def test_pairing_saves_active_account_in_device_pairings(self):
         user_id = str(ObjectId())
-        pet_id = str(ObjectId())
-        user_collection = SimpleNamespace(
+        pairings = SimpleNamespace(
             update_one=AsyncMock(
-                return_value=SimpleNamespace(matched_count=1)
+                return_value=SimpleNamespace(matched_count=1, upserted_id=None)
             )
         )
         request = SimpleNamespace(
             app=SimpleNamespace(
                 state=SimpleNamespace(
-                    database=SimpleNamespace(usuarios=user_collection)
+                    database=SimpleNamespace(device_pairings=pairings)
                 )
             )
         )
 
-        with (
-            patch.object(
-                main, "_owned_pet", new=AsyncMock(return_value={"_id": ObjectId(pet_id)})
-            ),
-            patch.object(main.secrets, "token_urlsafe", return_value="account-token"),
-        ):
-            result = await main.create_account_device_token(
-                pet_id, request, user_id
-            )
+        result = await main.pair_device_with_account(request, user_id)
 
-        self.assertEqual(result, {"device_token": "account-token"})
-        user_collection.update_one.assert_awaited_once_with(
-            {"_id": ObjectId(user_id)},
-            {
-                "$set": {
-                    "device_token_hash": hashlib.sha256(
-                        b"account-token"
-                    ).hexdigest()
-                }
-            },
-        )
+        self.assertEqual(result, {"paired": True})
+        pairings.update_one.assert_awaited_once()
+        query, update = pairings.update_one.await_args.args
+        self.assertEqual(query, {"_id": "shared-esp32"})
+        self.assertEqual(update["$set"]["usuario_id"], user_id)
+        self.assertEqual(pairings.update_one.await_args.kwargs, {"upsert": True})
 
-    async def test_device_token_resolves_to_account_without_environment_email(self):
+    async def test_device_token_resolves_current_paired_account(self):
         user_id = ObjectId()
-        token = "issued-device-token"
+        token = "shared-device-token"
+        pairing = {"_id": main.ESP32_DEVICE_PAIRING_ID, "usuario_id": str(user_id)}
+        pairings = SimpleNamespace(find_one=AsyncMock(return_value=pairing))
         user = {"_id": user_id, "email": "owner@example.com"}
         users = SimpleNamespace(find_one=AsyncMock(return_value=user))
         request = SimpleNamespace(
             app=SimpleNamespace(
                 state=SimpleNamespace(
-                    database=SimpleNamespace(usuarios=users)
+                    database=SimpleNamespace(
+                        device_pairings=pairings,
+                        usuarios=users,
+                    )
                 )
             )
         )
 
-        result = await main._authenticated_device(request, token)
+        with patch.object(main, "ESP32_DEVICE_TOKEN", token):
+            result = await main._authenticated_device(request, token)
 
         self.assertEqual(result, user)
-        users.find_one.assert_awaited_once_with(
-            {"device_token_hash": hashlib.sha256(token.encode("utf-8")).hexdigest()}
+        pairings.find_one.assert_awaited_once_with(
+            {"_id": main.ESP32_DEVICE_PAIRING_ID}
         )
+        users.find_one.assert_awaited_once_with({"_id": user_id})
+
+    async def test_wrong_device_token_is_rejected(self):
+        request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace()))
+        with patch.object(main, "ESP32_DEVICE_TOKEN", "configured-token"):
+            with self.assertRaises(HTTPException) as error:
+                await main._authenticated_device(request, "wrong-token")
+
+        self.assertEqual(error.exception.status_code, 401)
+
+    async def test_unpaired_device_is_rejected(self):
+        pairings = SimpleNamespace(find_one=AsyncMock(return_value=None))
+        request = SimpleNamespace(
+            app=SimpleNamespace(
+                state=SimpleNamespace(
+                    database=SimpleNamespace(device_pairings=pairings)
+                )
+            )
+        )
+
+        with patch.object(main, "ESP32_DEVICE_TOKEN", "configured-token"):
+            with self.assertRaises(HTTPException) as error:
+                await main._authenticated_device(request, "configured-token")
+
+        self.assertEqual(error.exception.status_code, 409)
 
     async def test_schedule_list_includes_only_pets_owned_by_token_account(self):
         user_id = str(ObjectId())
@@ -121,11 +137,9 @@ class DeviceAuthenticationTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
-            patch.object(
-                main,
-                "_authenticated_device",
-                new=AsyncMock(return_value={"_id": ObjectId(user_id)}),
-            ),
+            patch.object(main, "_authenticated_device", new=AsyncMock(
+                return_value={"_id": ObjectId(user_id)}
+            )),
             patch.object(
                 main,
                 "_recalculate_feeding_schedule_portions",
@@ -149,7 +163,7 @@ class DeviceAuthenticationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(recalculate.await_count, 2)
 
-    async def test_unknown_device_token_is_rejected(self):
+    async def test_wrong_device_token_is_rejected_before_database_lookup(self):
         users = SimpleNamespace(find_one=AsyncMock(return_value=None))
         request = SimpleNamespace(
             app=SimpleNamespace(
@@ -161,8 +175,9 @@ class DeviceAuthenticationTests(unittest.IsolatedAsyncioTestCase):
             )
         )
 
-        with self.assertRaises(HTTPException) as error:
-            await main._authenticated_device(request, "unknown-token")
+        with patch.object(main, "ESP32_DEVICE_TOKEN", "configured-token"):
+            with self.assertRaises(HTTPException) as error:
+                await main._authenticated_device(request, "unknown-token")
 
         self.assertEqual(error.exception.status_code, 401)
-        users.find_one.assert_awaited_once()
+        users.find_one.assert_not_awaited()

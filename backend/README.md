@@ -201,17 +201,22 @@ o un certificado emitido por una autoridad ya confiable en el dispositivo.
 
 ## ESP32: horarios y dispensaciones
 
-El ESP32 se vincula a la cuenta y a todas sus mascotas mediante un token
-generado por la API desde una sesión autenticada. La app puede solicitarlo
-usando el ID de cualquiera de las mascotas de esa cuenta con
-`POST /pets/{pet_id}/device-token` y entregar el valor `device_token` al
-dispensador. La API guarda solo el hash del token en la cuenta. Al
-autenticarse, el dispositivo recibe los horarios activos de todas las mascotas
-de esa cuenta; los horarios de otras cuentas no se mezclan. Cada cuenta puede
-tener un token activo para el dispensador; generar uno nuevo reemplaza el
-anterior. No requiere variables de entorno por usuario en Render. El token
-literal `patitas123` no funcionará a menos que sea el valor generado y devuelto
-por esa ruta. No guardes el token generado en el repositorio.
+El ESP32 utiliza un token fijo de dispositivo configurado una sola vez en
+`ESP32_DEVICE_TOKEN` en Render y en el firmware. No se genera ni cambia un token
+por cuenta. Para vincular el dispensador a una cuenta, esa cuenta inicia sesión
+en la app y llama `POST /device/pair`; la API guarda el ID de la cuenta activa
+en `device_pairings`. El vínculo es de una cuenta a la vez; una nueva vinculación
+desde otra cuenta reemplaza a la anterior. Al autenticarse, el dispositivo
+recibe los horarios activos de todas las mascotas de la cuenta vinculada; los
+horarios de otras cuentas no se mezclan.
+
+La app debe enviar `POST /device/pair` con el token de sesión `Authorization:
+Bearer <token-de-sesión>`. El ESP32 sigue usando únicamente el encabezado
+`X-Device-Token` para consultar horarios y registrar dispensaciones.
+
+Usa un valor secreto largo y aleatorio para `ESP32_DEVICE_TOKEN`. No lo
+compartas ni lo guardes en el repositorio. La app no debe mostrar el token ni
+solicitar uno por mascota.
 
 El ESP32 consulta los horarios activos de todas las mascotas de la cuenta
 vinculada con:

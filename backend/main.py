@@ -54,6 +54,8 @@ MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "petcare_iot")
 TOKEN_SECRET = os.getenv("PETCARE_TOKEN_SECRET")
 if not TOKEN_SECRET or not TOKEN_SECRET.strip():
     raise RuntimeError("La variable PETCARE_TOKEN_SECRET debe configurarse con una clave estable.")
+ESP32_DEVICE_TOKEN = os.getenv("ESP32_DEVICE_TOKEN", "").strip()
+ESP32_DEVICE_PAIRING_ID = "shared-esp32"
 ABSTRACT_EMAIL_REPUTATION_API_KEY = (
     os.getenv("ABSTRACT_EMAIL_REPUTATION_API_KEY")
     or os.getenv("ABSTRACT_EMAIL_VALIDATION_API_KEY", "")
@@ -72,6 +74,7 @@ COLLECTION_INDEXES = {
     "citas": [("mascota_id", 1), ("fecha", 1)],
     "alertas_dispositivo": [("usuario_id", 1), ("leida", 1), ("fecha_hora", -1)],
     "reportes_exportados": [("usuario_id", 1), ("fecha_exportacion", -1)],
+    "device_pairings": [],
 }
 COLLECTION_NAMES = tuple(COLLECTION_INDEXES)
 bearer_scheme = HTTPBearer()
@@ -1143,40 +1146,50 @@ async def delete_pet(
 async def _authenticated_device(
     request: Request, candidate: str | None
 ) -> dict[str, Any]:
-    if not candidate:
+    if not ESP32_DEVICE_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="El token del ESP32 no está configurado en el servidor.",
+        )
+    if not candidate or not hmac.compare_digest(candidate, ESP32_DEVICE_TOKEN):
         raise HTTPException(
             status_code=401, detail="Credenciales del dispositivo inválidas"
         )
 
     database = request.app.state.database
-    token_hash = hashlib.sha256(candidate.encode("utf-8")).hexdigest()
+    pairing = await database.device_pairings.find_one(
+        {"_id": ESP32_DEVICE_PAIRING_ID}
+    )
+    if not pairing or not ObjectId.is_valid(pairing.get("usuario_id", "")):
+        raise HTTPException(
+            status_code=409,
+            detail="El ESP32 todavía no está vinculado a una cuenta.",
+        )
     user = await database.usuarios.find_one(
-        {"device_token_hash": token_hash}
+        {"_id": ObjectId(pairing["usuario_id"])}
     )
     if not user:
-        raise HTTPException(
-            status_code=401, detail="Credenciales del dispositivo inválidas"
-        )
+        raise HTTPException(status_code=409, detail="La cuenta vinculada no existe.")
     return user
 
 
-@app.post("/pets/{pet_id}/device-token")
-async def create_account_device_token(
-    pet_id: str,
+@app.post("/device/pair")
+async def pair_device_with_account(
     request: Request,
     user_id: str = Depends(current_user_id),
-) -> dict[str, str]:
+) -> dict[str, bool]:
     database = request.app.state.database
-    await _owned_pet(database, pet_id, user_id)
-    device_token = secrets.token_urlsafe(32)
-    token_hash = hashlib.sha256(device_token.encode("utf-8")).hexdigest()
-    result = await database.usuarios.update_one(
-        {"_id": ObjectId(user_id)},
-        {"$set": {"device_token_hash": token_hash}},
+    await database.device_pairings.update_one(
+        {"_id": ESP32_DEVICE_PAIRING_ID},
+        {
+            "$set": {
+                "usuario_id": user_id,
+                "updated_at": datetime.now(timezone.utc),
+            }
+        },
+        upsert=True,
     )
-    if result.matched_count != 1:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return {"device_token": device_token}
+    return {"paired": True}
 
 
 @app.get("/device/feeding/schedules")
