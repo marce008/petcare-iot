@@ -86,6 +86,27 @@ export default function ReportsScreen({
     };
   }, [userId, isFocused]);
 
+  useEffect(() => {
+    if (!userId || !isFocused) return;
+
+    let active = true;
+    const refreshHistory = () => {
+      void getApi<any[]>('/feeding/history')
+        .then((records) => {
+          if (active) setHistory(records);
+        })
+        .catch((error) => {
+          if (active) console.error('Error actualizando informes de alimentación:', error);
+        });
+    };
+    const refreshTimer = setInterval(refreshHistory, 10000);
+
+    return () => {
+      active = false;
+      clearInterval(refreshTimer);
+    };
+  }, [userId, isFocused]);
+
   const selectedPet = pets.find((pet) => pet.id === selectedPetId);
   const selectedHistory = history.filter(
     (item) => item.mascota_id === selectedPetId,

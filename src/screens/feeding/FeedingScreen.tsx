@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Pressable } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { AppText as Text } from '../../contexts/LanguageContext';
 import { Ionicons } from '@expo/vector-icons';
 import { usePetcareDialog } from '../../components/PetcareDialogProvider';
@@ -9,15 +10,30 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 const WEEK_DAYS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
+function getLocalDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
 export default function FeedingScreen({ navigation, route }: { navigation: any; route: any }) {
   const { showDialog } = usePetcareDialog();
   const { palette } = useAppTheme();
   const { translate } = useLanguage();
   const userId = route.params?.userId;
+  const isFocused = useIsFocused();
   const [schedules, setSchedules] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [deletingScheduleId, setDeletingScheduleId] = useState<string | null>(null);
   const [detailSchedule, setDetailSchedule] = useState<any | null>(null);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setNow(new Date()), 10000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   useEffect(() => {
     if (!userId) {
@@ -25,37 +41,56 @@ export default function FeedingScreen({ navigation, route }: { navigation: any; 
       setHistory([]);
       return;
     }
+    if (!isFocused) return;
 
-    Promise.all([
-      getApi<any[]>('/feeding/schedules'),
-      getApi<any[]>('/feeding/history'),
-    ])
-      .then(([horarios, registros]) => {
-        setSchedules(horarios);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 6);
-        const cutoff = weekAgo.toISOString().slice(0, 10);
+    let active = true;
+    const updateHistory = (registros: any[]) => {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 6);
+      const cutoff = getLocalDateKey(weekAgo);
+      if (active) {
         setHistory(registros.filter((item) => String(item.fecha_hora).slice(0, 10) >= cutoff));
-      })
-      .catch((error) => {
+      }
+    };
+    const loadInitialData = async () => {
+      try {
+        const [horarios, registros] = await Promise.all([
+          getApi<any[]>('/feeding/schedules'),
+          getApi<any[]>('/feeding/history'),
+        ]);
+        if (!active) return;
+        setSchedules(horarios);
+        updateHistory(registros);
+      } catch (error) {
+        if (!active) return;
         console.error('Error cargando datos de alimentación:', error);
-        setSchedules([]);
-        setHistory([]);
         showDialog('Error', error instanceof Error ? error.message : 'No se pudieron cargar los datos de alimentación.');
-      });
-  }, [userId]);
+      }
+    };
+    void loadInitialData();
+
+    const refreshTimer = setInterval(() => {
+      void getApi<any[]>('/feeding/history')
+        .then(updateHistory)
+        .catch((error) => console.error('Error actualizando historial de alimentación:', error));
+    }, 10000);
+
+    return () => {
+      active = false;
+      clearInterval(refreshTimer);
+    };
+  }, [userId, isFocused]);
 
   const currentTime = useMemo(() => {
-    const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     return `${hours}:${minutes}`;
-  }, []);
+  }, [now]);
 
   const todayKey = useMemo(() => {
-    const today = new Date().getDay();
+    const today = now.getDay();
     return WEEK_DAYS[(today + 6) % 7];
-  }, []);
+  }, [now]);
 
   const todaySchedules = useMemo(
     () =>
@@ -102,11 +137,11 @@ export default function FeedingScreen({ navigation, route }: { navigation: any; 
 
   const weeklyTotals = useMemo(() => {
     const totals: Record<string, number> = {};
-    const todayDate = new Date();
+    const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     for (let i = 6; i >= 0; i--) {
       const date = new Date(todayDate);
       date.setDate(date.getDate() - i);
-      const key = date.toISOString().slice(0, 10);
+      const key = getLocalDateKey(date);
       totals[key] = 0;
     }
 
@@ -120,9 +155,9 @@ export default function FeedingScreen({ navigation, route }: { navigation: any; 
     return Object.keys(totals).map((key) => ({
       date: key,
       total: totals[key],
-      label: WEEK_DAYS[new Date(key).getDay() - 1] || 'Dom',
+      label: WEEK_DAYS[(new Date(`${key}T12:00:00`).getDay() + 6) % 7],
     }));
-  }, [history]);
+  }, [history, now]);
 
   const maxTotal = Math.max(...weeklyTotals.map((item) => item.total), 1);
 
@@ -242,7 +277,14 @@ export default function FeedingScreen({ navigation, route }: { navigation: any; 
           </View>
         ) : (
           todaySchedules.map((item: any) => {
-            const isNext = item.hora >= currentTime;
+            const isNext = Boolean(
+              nextSchedule &&
+                item.id &&
+                item.id === nextSchedule.id &&
+                nextSchedule.proximo_dia === todayKey,
+            );
+            const hasPassed = item.hora < currentTime;
+            const status = isNext ? 'Próximo' : hasPassed ? 'Pasó' : 'Programado';
             return (
               <TouchableOpacity
                 key={item.id}
@@ -256,7 +298,7 @@ export default function FeedingScreen({ navigation, route }: { navigation: any; 
                   <Text style={[styles.scheduleTime, { color: palette.text }]}>{item.hora}</Text>
                   <View style={styles.scheduleHeaderActions}>
                     <View style={[styles.statusBadge, { backgroundColor: isNext ? '#22C55E33' : palette.secondaryBackground }]}>
-                      <Text style={[styles.statusText, { color: isNext ? palette.positive : palette.muted }]}>{isNext ? 'Próximo' : 'Hecho'}</Text>
+                      <Text style={[styles.statusText, { color: isNext ? palette.positive : palette.muted }]}>{status}</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={palette.muted} />
                   </View>

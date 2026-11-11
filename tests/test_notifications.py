@@ -36,6 +36,26 @@ class FakeCollection:
 
 
 class NotificationTests(unittest.TestCase):
+    def test_converts_utc_feeding_time_to_ecuador_local_time(self):
+        feeding_time = main._parse_notification_datetime(
+            "2026-11-11T03:37:00+00:00"
+        )
+
+        self.assertIsNotNone(feeding_time)
+        self.assertEqual(
+            feeding_time.isoformat(timespec="minutes"),
+            "2026-11-10T22:37-05:00",
+        )
+
+    def test_keeps_date_only_notification_on_local_calendar_day(self):
+        notification_date = main._parse_notification_datetime("2026-11-11")
+
+        self.assertIsNotNone(notification_date)
+        self.assertEqual(
+            notification_date.isoformat(timespec="minutes"),
+            "2026-11-11T00:00-05:00",
+        )
+
     def test_parses_appointment_in_saved_device_timezone(self):
         appointment = main._parse_appointment_datetime(
             "2026-06-15", "09:30", "America/Guayaquil"

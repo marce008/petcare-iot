@@ -51,11 +51,11 @@ async function scheduleVaccineReminder(
         body: `${petName} tiene una vacuna programada en ${daysBefore} día${daysBefore === 1 ? '' : 's'}.`,
         data: { vaccineId },
         sound: true,
-        channelId: 'petcare-alerts',
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DATE,
         date: reminderDate,
+        channelId: 'petcare-alerts',
       },
     });
   }

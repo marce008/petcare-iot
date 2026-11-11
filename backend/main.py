@@ -51,6 +51,7 @@ MONGODB_URI = os.getenv("MONGO_URI")
 if not MONGODB_URI:
     raise RuntimeError("La variable MONGO_URI debe configurarse.")
 MONGODB_DATABASE = os.getenv("MONGODB_DATABASE", "petcare_iot")
+APP_TIMEZONE = ZoneInfo("America/Guayaquil")
 TOKEN_SECRET = os.getenv("PETCARE_TOKEN_SECRET")
 if not TOKEN_SECRET or not TOKEN_SECRET.strip():
     raise RuntimeError("La variable PETCARE_TOKEN_SECRET debe configurarse con una clave estable.")
@@ -471,16 +472,19 @@ def _parse_notification_datetime(value: Any) -> datetime | None:
     if isinstance(value, datetime):
         parsed = value
     elif isinstance(value, str):
+        raw_value = value.strip()
         try:
-            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(raw_value.replace("Z", "+00:00"))
         except ValueError:
             return None
+        if len(raw_value) == 10:
+            parsed = parsed.replace(tzinfo=APP_TIMEZONE)
     else:
         return None
 
     if parsed.tzinfo is None:
-        return parsed.astimezone()
-    return parsed.astimezone()
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(APP_TIMEZONE)
 
 
 def _parse_appointment_datetime(
@@ -504,7 +508,7 @@ def _parse_appointment_datetime(
             return local_datetime.replace(tzinfo=ZoneInfo(timezone_name))
         except ZoneInfoNotFoundError:
             return None
-    return _parse_notification_datetime(local_datetime)
+    return local_datetime.replace(tzinfo=APP_TIMEZONE)
 
 
 def _is_notification_day(target: datetime, current_date: date, days_before: int) -> bool:
@@ -559,6 +563,10 @@ async def _list_pet_records(database: Any, collection: str, user_id: str) -> lis
     for record in records:
         record["mascota_nombre"] = pet_names.get(str(record.get("mascota_id")), "")
         record["mascota_id"] = str(record["mascota_id"])
+        if collection == "historial_alimentacion":
+            feeding_date = _parse_notification_datetime(record.get("fecha_hora"))
+            if feeding_date:
+                record["fecha_hora"] = feeding_date.isoformat(timespec="seconds")
     return [_serialize(record) for record in records]
 
 
@@ -1216,7 +1224,7 @@ async def device_feeding_schedules(
     pet_ids = [pet["_id"] for pet in pets]
     if not pet_ids:
         return {
-            "server_time": datetime.now().astimezone().isoformat(timespec="seconds"),
+            "server_time": datetime.now(APP_TIMEZONE).isoformat(timespec="seconds"),
             "schedules": [],
         }
 
@@ -1267,7 +1275,7 @@ async def device_feeding_schedules(
             }
         )
     return {
-        "server_time": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "server_time": datetime.now(APP_TIMEZONE).isoformat(timespec="seconds"),
         "schedules": device_schedules,
     }
 
@@ -1317,7 +1325,7 @@ async def record_device_feeding(
             "alerta_id": str(existing_alert["_id"]) if existing_alert else None,
         }
 
-    now = datetime.now().astimezone()
+    now = datetime.now(APP_TIMEZONE)
     portion = data.porcion_entregada
 
     record = {
@@ -1825,7 +1833,7 @@ async def create_feeding_history(
             raise HTTPException(status_code=404, detail="Horario de alimentación no encontrado")
         schedules = await _recalculate_feeding_schedule_portions(database, pet)
         schedule = next(item for item in schedules if item["_id"] == schedule["_id"])
-        day = WEEK_DAYS[datetime.now().weekday()]
+        day = WEEK_DAYS[datetime.now(APP_TIMEZONE).weekday()]
         portion = schedule.get("gramos_por_dia", {}).get(day)
         if portion is None:
             raise HTTPException(
@@ -1838,7 +1846,7 @@ async def create_feeding_history(
     record.update({
         "mascota_id": pet["_id"],
         "usuario_id": user_id,
-        "fecha_hora": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+        "fecha_hora": datetime.now(APP_TIMEZONE).isoformat(timespec="seconds"),
     })
     result = await request.app.state.database.historial_alimentacion.insert_one(record)
     record["_id"] = result.inserted_id
